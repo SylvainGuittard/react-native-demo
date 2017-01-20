@@ -11,17 +11,16 @@ import {
     StyleSheet,
     Text,
     Image,
-    Dimensions,
     TouchableHighlight,
     ListView,
     ActivityIndicator,
     ScrollView,
     View,
     RefreshControl,
-    TouchableWithoutFeedback
+    Animated
 } from 'react-native';
+import Meal from './components/Meal';
 
-const width = Dimensions.get('window').width;
 const domain = "http://react.ezstudiodemo.com";
 
 export default class PlacesAndTastes extends Component {
@@ -42,9 +41,9 @@ export default class PlacesAndTastes extends Component {
     }
 
     async generateSession(){
-        var userSession = "";
-        var endpoint = "/api/ezp/v2/user/sessions";
-        await fetch( domain + endpoint , {
+        let endpoint = "/api/ezp/v2/user/sessions";
+
+        await fetch(domain + endpoint , {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/vnd.ez.api.Session+json',
@@ -54,14 +53,18 @@ export default class PlacesAndTastes extends Component {
             }
         )
         .then((response) => response.json())
-        .then(async (responseData) => await AsyncStorage.multiSet([["identifier", responseData["Session"]["identifier"]], ["csrfToken", responseData["Session"]["csrfToken"]], ["User", responseData["Session"]["User"]["_href"]]]))
+        .then(async (responseData) => await AsyncStorage.multiSet([
+            ["identifier", responseData["Session"]["identifier"]],
+            ["csrfToken", responseData["Session"]["csrfToken"]],
+            ["User", responseData["Session"]["User"]["_href"]]]))
         .catch((error) => console.log(error));
     };
 
     async buildImageList(){
-        var csrfToken = await AsyncStorage.getItem("csrfToken");
-        var endpoint = "/api/ezp/v2/views";
-        var body = `<?xml version="1.0" encoding="UTF-8"?>
+        let csrfToken = await AsyncStorage.getItem("csrfToken"),
+            endpoint = "/api/ezp/v2/views",
+            body = `<?xml version="1.0" encoding="UTF-8"?>
+        
         <ViewInput>
             <identifier>AppImages</identifier>
             <Query>
@@ -145,22 +148,21 @@ export default class PlacesAndTastes extends Component {
     };
 
     renderImage(image) {
-        var imageUri = image["value"]["Content"]["CurrentVersion"]["Version"]["Fields"]["field"][2]["fieldValue"]["uri"];
+        let imageUri = domain + image["value"]["Content"]["CurrentVersion"]["Version"]["Fields"]["field"][2]["fieldValue"]["uri"],
+            imageName = image["value"]["Content"]["Name"],
+            imageCaption = image["value"]["Content"]["CurrentVersion"]["Version"]["Fields"]["field"][1]["fieldValue"]["xml"]
+                .replace(/(<([^>]+)>)/ig,"")
+                .trim();
+
         return (
-            <TouchableWithoutFeedback underlayColor='#dddddd'>
-                <View style={styles.imageList} >
-                    <Image
-                        source={{uri: domain+imageUri}}
-                        style={styles.imageItem} />
-                </View>
-            </TouchableWithoutFeedback>
+            <Meal imageName={imageName} imageUri={imageUri} imageCaption={imageCaption}/>
         );
     }
 
     renderLoadingView() {
         return (
             <View style={styles.container}>
-                <View style={styles.statusBar}></View>
+                <View style={styles.statusBar}/>
                 <View style={styles.navbar}>
                     <Text style={styles.navbarTitle}>Tasteful <Text style={styles.navbarTitlePrimary}>Planet</Text></Text>
                 </View>
@@ -201,14 +203,6 @@ const styles = StyleSheet.create({
     loadingIndicator: {
         marginTop: 20
     },
-    imageList: {
-        alignItems: 'center'
-    },
-    imageItem: {
-        width: width-6,
-        height: width-6,
-        marginBottom: 3
-    }
 });
 
 AppRegistry.registerComponent('PlacesAndTastes', () => PlacesAndTastes);
