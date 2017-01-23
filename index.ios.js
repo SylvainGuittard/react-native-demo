@@ -16,7 +16,9 @@ import {
     ListView,
     ActivityIndicator,
     ScrollView,
-    View
+    View,
+    RefreshControl,
+    TouchableWithoutFeedback
 } from 'react-native';
 
 const width = Dimensions.get('window').width;
@@ -28,6 +30,7 @@ export default class PlacesAndTastes extends Component {
         this.generateSession();
         this.state = {
             isLoading: true,
+            isRefreshing: false,
             dataSource: new ListView.DataSource({
                 rowHasChanged: (row1, row2) => row1 !== row2
             })
@@ -65,6 +68,7 @@ export default class PlacesAndTastes extends Component {
                 <Criteria>
                     <ContentTypeIdentifierCriterion>image</ContentTypeIdentifierCriterion>
                     <ParentLocationIdCriterion>206</ParentLocationIdCriterion>
+                    <VisibilityCriterion>visible</VisibilityCriterion>
                 </Criteria>
                 <SortClauses>
                     <DatePublished>descending</DatePublished>
@@ -98,30 +102,58 @@ export default class PlacesAndTastes extends Component {
 
         return (
             <View style={styles.container}>
-                <View style={styles.statusBar}></View>
+                <View style={styles.statusBar}>
+                </View>
+
                 <View style={styles.navbar}>
                     <Text style={styles.navbarTitle}>Tasteful <Text style={styles.navbarTitlePrimary}>Planet</Text></Text>
                 </View>
 
-                <ListView
-                    dataSource={this.state.dataSource}
-                    renderRow={this.renderImage.bind(this)}
-                    style={styles.listView}
-                />
+                <ScrollView
+                    style={styles.scrollview}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={this.state.isRefreshing}
+                            onRefresh={this.onRefresh}
+                            tintColor="#000"
+                            title="Reloading image list..."
+                            titleColor="#000"
+                            colors={['#ff0000', '#00ff00', '#0000ff']}
+                            progressBackgroundColor="#ffff00"
+                        />
+                    }>
+                    <ListView
+                        dataSource={this.state.dataSource}
+                        renderRow={this.renderImage.bind(this)}
+                        style={styles.listView}
+                    />
+                </ScrollView>
             </View>
         );
     }
 
+    onRefresh = () => {
+        this.setState({isRefreshing: true});
+
+        setTimeout(() => {
+          this.buildImageList();
+
+          this.setState({
+            isRefreshing: false
+          });
+        }, 1000);
+    };
+
     renderImage(image) {
         var imageUri = image["value"]["Content"]["CurrentVersion"]["Version"]["Fields"]["field"][2]["fieldValue"]["uri"];
         return (
-            <TouchableHighlight underlayColor='#dddddd'>
+            <TouchableWithoutFeedback underlayColor='#dddddd'>
                 <View style={styles.imageList} >
                     <Image
                         source={{uri: domain+imageUri}}
                         style={styles.imageItem} />
                 </View>
-            </TouchableHighlight>
+            </TouchableWithoutFeedback>
         );
     }
 
@@ -136,7 +168,6 @@ export default class PlacesAndTastes extends Component {
             </View>
         );
     }
-
 }
 
 const styles = StyleSheet.create({
