@@ -55,7 +55,32 @@ export default class RestClient {
                 },
                 body: body
             })
-            .then((response) => response.json())
+            .then(function (response) {
+                if (response.status !== 200) {
+                    return Promise.reject('Not found 404');
+                }
+
+                return response.json().then(function (json) {
+                    return this._repackImageData(json);
+                }.bind(this));
+            }.bind(this))
             .then(callback);
+    }
+
+    _repackImageData(responseData) {
+        let contentData = {},
+            index = 0;
+
+        responseData['View']['Result']['searchHits']['searchHit'].forEach(function (image) {
+            let contentId = (index++)+'_'+image['value']['Content']['_id'];
+
+            contentData[contentId] = {
+                name: image['value']['Content']['Name'],
+                caption: image['value']['Content']['CurrentVersion']['Version']['Fields']['field'][1]['fieldValue']['xml'],
+                uri: image['value']['Content']['CurrentVersion']['Version']['Fields']['field'][2]['fieldValue']['uri']
+            };
+        });
+
+        return contentData;
     }
 }

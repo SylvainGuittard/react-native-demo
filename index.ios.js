@@ -67,6 +67,7 @@ export default class PlacesAndTastes extends Component {
         });
 
         this.restClient.generateSession(username, password);
+
         this.state = {
             isLoading: true,
             isRefreshing: false,
@@ -82,7 +83,7 @@ export default class PlacesAndTastes extends Component {
     componentWillMount() {
         this.restClient.buildImageList(
             (responseData) => this.setState({
-                dataSource: this.state.dataSource.cloneWithRows(responseData['View']['Result']['searchHits']['searchHit']),
+                dataSource: this.state.dataSource.cloneWithRows(responseData),
                 isLoading: false
             })
         );
@@ -126,7 +127,7 @@ export default class PlacesAndTastes extends Component {
                     }>
                     <ListView
                         dataSource={this.state.dataSource}
-                        renderRow={this.renderImage.bind(this)}
+                        renderRow={this.renderRow.bind(this)}
                         style={styles.listView}
                     />
                 </ScrollView>
@@ -135,15 +136,12 @@ export default class PlacesAndTastes extends Component {
     }
 
     onRefresh = () => {
-        this.setState({isRefreshing: true});
+        this.setState({
+            isRefreshing: true
+        });
 
         setTimeout(() => {
-            this.restClient.buildImageList(
-                (responseData) => this.setState({
-                    dataSource: this.state.dataSource.cloneWithRows(responseData['View']['Result']['searchHits']['searchHit']),
-                    isLoading: false
-                })
-            );
+          this.componentWillMount();
 
           this.setState({
             isRefreshing: false
@@ -151,10 +149,10 @@ export default class PlacesAndTastes extends Component {
         }, 1000);
     };
 
-    renderImage(image) {
-        let imageUri = domain + image['value']['Content']['CurrentVersion']['Version']['Fields']['field'][2]['fieldValue']['uri'],
-            imageName = image['value']['Content']['Name'],
-            imageCaption = image['value']['Content']['CurrentVersion']['Version']['Fields']['field'][1]['fieldValue']['xml']
+    renderRow(rowData) {
+        let imageName = rowData.name,
+            imageUri = domain + rowData.uri,
+            imageCaption = rowData.caption
                 .replace(/(<([^>]+)>)/ig, '')
                 .trim();
 
