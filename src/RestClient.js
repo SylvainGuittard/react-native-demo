@@ -4,15 +4,13 @@ import {
 
 export default class RestClient {
     constructor(props) {
-        this.username = props.username;
-        this.password = props.password;
+        this.defaultUserTitle = 'Administrator User';
+        this.defaultUserGroupLocationId = 13;
         this.domain = props.domain;
     }
 
-    async generateSession(username, password) {
-        let endpoint = '/api/ezp/v2/user/sessions';
-
-        await fetch(this.domain + endpoint, {
+    async generateSession(username, password, callback) {
+        await fetch(this.domain + '/api/ezp/v2/user/sessions', {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/vnd.ez.api.Session+json',
@@ -20,40 +18,126 @@ export default class RestClient {
                 },
                 body: '{"SessionInput": {"login": "'+username+'", "password": "'+password+'"}}'
             })
-            .then((response) => response.json())
-            .then(async (responseData) => await AsyncStorage.multiSet([
-                ['identifier', responseData['Session']['identifier']],
-                ['csrfToken', responseData['Session']['csrfToken']],
-                ['User', responseData['Session']['User']['_href']]]))
-            .catch((error) => console.log(error));
+            .then(function (response) {
+                if (response.ok) {
+
+                    // store working credentials for further use
+                    AsyncStorage.multiSet([
+                        ['_username', username],
+                        ['_password', password]
+                    ]);
+                }
+
+                return response.json();
+            })
+            .then(callback)
+            .catch(error => {
+                return Promise.reject();
+            });
     };
 
-    async buildImageList(callback) {
+    async destroySession(callback) {
         let csrfToken = await AsyncStorage.getItem('csrfToken'),
-            endpoint = '/api/ezp/v2/views',
-            body = `<?xml version="1.0" encoding="UTF-8"?>
-                <ViewInput>
-                    <identifier>AppImages</identifier>
-                    <Query>
-                        <Criteria>
-                            <ContentTypeIdentifierCriterion>image</ContentTypeIdentifierCriterion>
-                            <ParentLocationIdCriterion>206</ParentLocationIdCriterion>
-                            <VisibilityCriterion>visible</VisibilityCriterion>
-                        </Criteria>
-                        <SortClauses>
-                            <DatePublished>descending</DatePublished>
-                        </SortClauses>
-                    </Query>
-                </ViewInput>`;
+            sessionId = await AsyncStorage.getItem('identifier');
 
-        return fetch(this.domain + endpoint, {
+        await fetch(this.domain + '/api/ezp/v2/user/sessions/'+sessionId, {
+            method: 'DELETE',
+            headers: {
+                'Accept': 'application/vnd.ez.api.Session+json',
+                'Content-Type': 'application/vnd.ez.api.SessionInput+json',
+                'X-CSRF-Token': csrfToken
+            }
+        })
+        .then(function (response) {
+            return response;
+        })
+        .then(callback)
+        .catch(error => {
+            return Promise.reject()
+        });
+    };
+
+    async getUserByHref(href, callback) {
+        let csrfToken = await AsyncStorage.getItem('csrfToken');
+
+        return fetch(this.domain + href, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/vnd.ez.api.User+json',
+                'Content-Type': 'application/vnd.ez.api.User+xml',
+                'X-CSRF-Token': csrfToken
+            }
+            })
+            .then(function (response) {
+                return response.json();
+            })
+            .then(callback)
+            .catch(error => {
+                return Promise.reject()
+            });
+    }
+
+    async createUser(firstName, lastName, email, username, password, callback) {
+        let csrfToken = await AsyncStorage.getItem('csrfToken')
+
+        return fetch(this.domain + '/api/ezp/v2/user/groups/'+this.defaultUserGroupLocationId+'/users', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/vnd.ez.api.User+json',
+                'Content-Type': 'application/vnd.ez.api.UserCreate+xml',
+                'X-CSRF-Token': csrfToken
+            },
+            body: `<?xml version="1.0" encoding="UTF-8"?>
+                    <UserCreate>
+                      <mainLanguageCode>eng-GB</mainLanguageCode>
+                      <login>`+username+`</login>
+                      <email>`+email+`</email>
+                      <password>`+password+`</password>
+                      <fields>
+                        <field>
+                          <fieldDefinitionIdentifier>first_name</fieldDefinitionIdentifier>
+                          <fieldValue>`+firstName+`</fieldValue>
+                        </field>
+                        <field>
+                          <fieldDefinitionIdentifier>last_name</fieldDefinitionIdentifier>
+                          <fieldValue>`+lastName+`</fieldValue>
+                        </field>
+                      </fields>
+                    </UserCreate>`
+            })
+            .then(function (response) {
+                return response.json();
+            })
+            .then(callback)
+            .catch(error => {
+                return Promise.reject()
+            });
+    }
+
+    async buildImageList(callback) {
+        let csrfToken = await AsyncStorage.getItem('csrfToken');
+
+        return fetch(this.domain + '/api/ezp/v2/views', {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/vnd.ez.api.View+json',
                     'Content-Type': 'application/vnd.ez.api.ViewInput+xml',
                     'X-CSRF-Token': csrfToken
                 },
-                body: body
+                body: `<?xml version="1.0" encoding="UTF-8"?>
+                        <ViewInput>
+                            <identifier>AppImages</identifier>
+                            <Query>
+                                <Criteria>
+                                    <ContentTypeIdentifierCriterion>image</ContentTypeIdentifierCriterion>
+                                    <ParentLocationIdCriterion>206</ParentLocationIdCriterion>
+                                    <VisibilityCriterion>visible</VisibilityCriterion>
+                                </Criteria>
+                                <SortClauses>
+                                    <DatePublished>descending</DatePublished>
+                                </SortClauses>
+                            </Query>
+                        </ViewInput>`
             })
             .then(function (response) {
                 if (response.status !== 200) {
