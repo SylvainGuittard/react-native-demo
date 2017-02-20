@@ -1,162 +1,148 @@
-/**
- * React Native Demo with eZ Platform
- * https://ezplatform.com
- * @flow
- */
-
 import React, {Component} from 'react';
 import {
+    Text,
+    Navigator,
+    TouchableHighlight,
     AppRegistry,
     StyleSheet,
-    Text,
-    Image,
-    ListView,
-    ActivityIndicator,
-    ScrollView,
-    View,
-    RefreshControl
+    AsyncStorage,
+    View
 } from 'react-native';
-import Meal from './src/components/Meal';
+import List from './src/components/List';
+import Login from './src/components/Login';
+import Register from './src/components/Register';
+import Preloader from './src/components/Preloader';
 import RestClient from './src/RestClient';
 
 const domain = 'http://react.ezstudiodemo.com',
       username = 'admin',
       password = 'publish',
-      loadingCaption = 'Reloading image list...',
       styles = StyleSheet.create({
-          container: {
-              backgroundColor: '#f2f2f2',
-              flex: 1,
-          },
-          navbar: {
-              alignItems: 'center',
-              backgroundColor: '#fff',
-              borderBottomColor: '#eee',
-              borderColor: 'transparent',
-              borderWidth: 1,
-              justifyContent: 'center',
-              height: 44,
-              marginBottom: 3,
-              flexDirection: 'row'
-          },
-          navbarTitle: {
-              color: '#444',
-              fontSize: 16,
-              fontWeight: '500'
-          },
-          navbarTitlePrimary: {
-              color: '#337ab7'
-          },
-          statusBar: {
-              backgroundColor: '#fff',
-              height: 22
-          },
-          loadingIndicator: {
-              marginTop: 20
-          },
-      });
+      container: {
+          paddingTop: 75
+      },
+      navbar: {
+          marginTop: 15,
+          marginLeft: 10,
+          marginRight: 10
+      },
+      navbarTitle: {
+          color: '#444',
+          fontSize: 16,
+          fontWeight: '500'
+      },
+      navbarTitlePrimary: {
+          color: '#337ab7'
+      },
+      userTitle: {
+          textAlign: 'center',
+          fontSize: 10,
+          color: '#424242',
+          fontWeight: 'bold'
+      }
+  });
 
 export default class PlacesAndTastes extends Component {
+    routes = [
+        {index: 'list'},
+        {index: 'login'},
+        {index: 'register'},
+        {index: 'preloader'}
+    ];
+
     constructor(props) {
         super(props);
 
+        this.state = {
+            userTitle: ''
+        };
+
         this.restClient = new RestClient({
-            domain: domain,
-            username: username,
-            password: password
+            domain: domain
         });
 
-        this.restClient.generateSession(username, password);
-
-        this.state = {
-            isLoading: true,
-            isRefreshing: false,
-            dataSource: new ListView.DataSource({
-                rowHasChanged: (row1, row2) => row1 !== row2
-            })
-        };
+        this.restClient.generateSession(
+            username,
+            password,
+            (results) => {
+                AsyncStorage.multiSet([
+                    ['identifier', results['Session']['identifier']],
+                    ['csrfToken', results['Session']['csrfToken']],
+                    ['User', results['Session']['User']['_href']]
+                ]);
+            });
     }
 
-    /**
-     * Build image list before rendering list view.
-     */
-    componentWillMount() {
-        this.restClient.buildImageList(
-            (responseData) => this.setState({
-                dataSource: this.state.dataSource.cloneWithRows(responseData),
-                isLoading: false
-            })
-        );
+    componentWillUnmount() {
+        this.restClient.destroySession();
     }
 
-    /**
-     * Render main app view.
-     */
-    render() {
-        if (this.state.isLoading) {
-            return (
-                <View style={styles.container}>
-                    <View style={styles.statusBar}/>
-                    <View style={styles.navbar}>
-                        <Text style={styles.navbarTitle}>Tasteful <Text style={styles.navbarTitlePrimary}>Planet</Text></Text>
-                    </View>
-                    <ActivityIndicator size='small' style={styles.loadingIndicator}/>
-                </View>
-            );
+    renderScene(route, navigator) {
+        if (route.index === 'login') {
+            return (<Login
+                        restClient={this.restClient}
+                        navigator={navigator}
+                    />);
         }
 
-        return (
-            <View style={styles.container}>
-                <View style={styles.statusBar}/>
-                <View style={styles.navbar}>
-                    <Text style={styles.navbarTitle}>Tasteful <Text style={styles.navbarTitlePrimary}>Planet</Text></Text>
-                </View>
+        if (route.index === 'register') {
+            return (<Register
+                        restClient={this.restClient}
+                        navigator={navigator}
+                    />);
+        }
 
-                <ScrollView
-                    style={styles.scrollview}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={this.state.isRefreshing}
-                            onRefresh={this.onRefresh}
-                            tintColor='#000'
-                            title={loadingCaption}
-                            titleColor='#000'
-                            colors={['#ff0000', '#00ff00', '#0000ff']}
-                            progressBackgroundColor='#ffff00'
-                        />
-                    }>
-                    <ListView
-                        dataSource={this.state.dataSource}
-                        renderRow={this.renderRow.bind(this)}
-                        style={styles.listView}
-                    />
-                </ScrollView>
-            </View>
-        );
+        if (route.index == 'preloader') {
+            return (<Preloader
+                        navigator={navigator}
+                    />);
+        }
+
+        return (<List
+                    restClient={this.restClient}
+                    domain={domain}
+                />);
     }
 
-    onRefresh = () => {
-        this.setState({
-            isRefreshing: true
-        });
-
-        setTimeout(() => {
-          this.componentWillMount();
-
-          this.setState({
-            isRefreshing: false
-          });
-        }, 1000);
-    };
-
-    renderRow(rowData) {
-        let imageName = rowData.name,
-            imageUri = domain + rowData.uri,
-            imageCaption = rowData.caption
-                .replace(/(<([^>]+)>)/ig, '')
-                .trim();
-
-        return (<Meal imageName={imageName} imageUri={imageUri} imageCaption={imageCaption}/>);
+    render() {
+        return (
+            <Navigator
+                initialRoute={this.routes[0]}
+                initialRouteStack={this.routes}
+                renderScene={this.renderScene.bind(this)}
+                configureScene={(route, routeStack) =>
+                    Navigator.SceneConfigs.FloatFromLeft
+                }
+                navigationBar={
+                     <Navigator.NavigationBar
+                       routeMapper={{
+                         LeftButton: (route, navigator, index, navState) => {
+                            if (route.index !== 'list' && route.index !== 'preloader') {
+                                return (<Text onPress={() => navigator.pop()}>Back</Text>);
+                            }
+                         },
+                         RightButton: (route, navigator, index, navState) => {
+                            if (route.index === 'list') {
+                                return (<Text onPress={() => navigator.push({index: 'login'})}>Login</Text>);
+                            } else if (route.index === 'login') {
+                                return (<Text onPress={() => navigator.push({index: 'register'})}>Register</Text>);
+                            }
+                         },
+                         Title: (route, navigator, index, navState) => {
+                             return (
+                                 <View>
+                                     <Text style={styles.navbarTitle}>Tasteful <Text style={styles.navbarTitlePrimary}>Planet</Text></Text>
+                                     <Text style={styles.userTitle}>{this.restClient.defaultUserTitle}</Text>
+                                 </View>
+                             );
+                         }
+                       }}
+                       style={styles.navbar}
+                     />
+                }
+                style={styles.container}
+            />
+        );
     }
 }
 
