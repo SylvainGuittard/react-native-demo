@@ -1,6 +1,5 @@
 import React, {Component} from 'react';
 import {
-    AppRegistry,
     StyleSheet,
     Text,
     Image,
@@ -8,7 +7,8 @@ import {
     ActivityIndicator,
     ScrollView,
     View,
-    RefreshControl
+    RefreshControl,
+    AsyncStorage
 } from 'react-native';
 import Meal from './Meal';
 
@@ -47,7 +47,8 @@ class List extends Component {
             isRefreshing: false,
             dataSource: new ListView.DataSource({
                 rowHasChanged: (row1, row2) => row1 !== row2
-            })
+            }),
+            domain: ''
         };
     }
 
@@ -55,12 +56,20 @@ class List extends Component {
      * Build image list before rendering list view.
      */
     componentWillMount() {
-        this.props.restClient.buildImageList(
-            (responseData) => this.setState({
-                dataSource: this.state.dataSource.cloneWithRows(responseData),
-                isLoading: false
-            })
-        );
+        this._loadInitialState().then(function () {
+            this.props.restClient.buildImageList(
+                (responseData) => this.setState({
+                    dataSource: this.state.dataSource.cloneWithRows(responseData),
+                    isLoading: false
+                })
+            );
+        }.bind(this));
+    }
+
+    async _loadInitialState() {
+        this.setState({
+            domain: await AsyncStorage.getItem('_domain')
+        });
     }
 
     render() {
@@ -113,7 +122,7 @@ class List extends Component {
 
     renderRow(rowData) {
         let imageName = rowData.name,
-            imageUri = this.props.domain + rowData.uri,
+            imageUri = this.state.domain + rowData.uri,
             imageCaption = rowData.caption
                 .replace(/(<([^>]+)>)/ig, '')
                 .trim();

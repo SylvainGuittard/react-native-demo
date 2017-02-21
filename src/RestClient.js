@@ -6,11 +6,10 @@ export default class RestClient {
     constructor(props) {
         this.defaultUserTitle = 'Administrator User';
         this.defaultUserGroupLocationId = 13;
-        this.domain = props.domain;
     }
 
-    async generateSession(username, password, callback) {
-        await fetch(this.domain + '/api/ezp/v2/user/sessions', {
+    async generateSession(domain, username, password, callback) {
+        await fetch(domain + '/api/ezp/v2/user/sessions', {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/vnd.ez.api.Session+json',
@@ -20,11 +19,11 @@ export default class RestClient {
             })
             .then(function (response) {
                 if (response.ok) {
-
                     // store working credentials for further use
                     AsyncStorage.multiSet([
                         ['_username', username],
-                        ['_password', password]
+                        ['_password', password],
+                        ['_domain', domain]
                     ]);
                 }
 
@@ -32,15 +31,16 @@ export default class RestClient {
             })
             .then(callback)
             .catch(error => {
-                return Promise.reject();
+                callback(error, true);
             });
     };
 
     async destroySession(callback) {
         let csrfToken = await AsyncStorage.getItem('csrfToken'),
-            sessionId = await AsyncStorage.getItem('identifier');
+            sessionId = await AsyncStorage.getItem('identifier'),
+            domain = await AsyncStorage.getItem('_domain');
 
-        await fetch(this.domain + '/api/ezp/v2/user/sessions/'+sessionId, {
+        await fetch(domain + '/api/ezp/v2/user/sessions/'+sessionId, {
             method: 'DELETE',
             headers: {
                 'Accept': 'application/vnd.ez.api.Session+json',
@@ -58,9 +58,10 @@ export default class RestClient {
     };
 
     async getUserByHref(href, callback) {
-        let csrfToken = await AsyncStorage.getItem('csrfToken');
+        let csrfToken = await AsyncStorage.getItem('csrfToken'),
+            domain = await AsyncStorage.getItem('_domain');
 
-        return fetch(this.domain + href, {
+        return fetch(domain + href, {
             method: 'GET',
             headers: {
                 'Accept': 'application/vnd.ez.api.User+json',
@@ -78,9 +79,10 @@ export default class RestClient {
     }
 
     async createUser(firstName, lastName, email, username, password, callback) {
-        let csrfToken = await AsyncStorage.getItem('csrfToken')
+        let csrfToken = await AsyncStorage.getItem('csrfToken'),
+            domain = await AsyncStorage.getItem('_domain');
 
-        return fetch(this.domain + '/api/ezp/v2/user/groups/'+this.defaultUserGroupLocationId+'/users', {
+        return fetch(domain + '/api/ezp/v2/user/groups/'+this.defaultUserGroupLocationId+'/users', {
             method: 'POST',
             headers: {
                 'Accept': 'application/vnd.ez.api.User+json',
@@ -115,9 +117,10 @@ export default class RestClient {
     }
 
     async buildImageList(callback) {
-        let csrfToken = await AsyncStorage.getItem('csrfToken');
+        let csrfToken = await AsyncStorage.getItem('csrfToken'),
+            domain = await AsyncStorage.getItem('_domain');
 
-        return fetch(this.domain + '/api/ezp/v2/views', {
+        return fetch(domain + '/api/ezp/v2/views', {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/vnd.ez.api.View+json',

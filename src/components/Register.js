@@ -29,7 +29,7 @@ const appWidth = Dimensions.get('window').width,
               marginLeft: 20
           },
           registerButton: {
-              marginTop: 50,
+              marginTop: 30,
               marginLeft: 30,
               marginRight: 30,
               borderColor: '#308ffc',
