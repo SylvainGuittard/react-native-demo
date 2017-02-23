@@ -9,6 +9,7 @@ import {
     Alert,
     AsyncStorage
 } from 'react-native';
+import Hr from 'react-native-hr';
 
 const appWidth = Dimensions.get('window').width,
       appHeight = Dimensions.get('window').height,
@@ -19,17 +20,29 @@ const appWidth = Dimensions.get('window').width,
               height: appHeight,
               width: appWidth
           },
-          header: {
-              marginTop: 30,
-              marginBottom: 30,
-              marginLeft: 10,
-              marginRight: 10,
-              textAlign: 'center',
-              fontSize: 17
-          },
           field: {
               flexDirection: 'row',
-              marginTop: 20
+              marginTop: 10,
+              marginBottom: 10
+          },
+          field_website: {
+              flexDirection: 'row',
+              marginTop: 10,
+              marginBottom: 20
+          },
+          header: {
+              color: '#87878b',
+              marginTop: 30,
+              marginLeft: 20,
+              fontSize: 11,
+              fontWeight: 'bold'
+          },
+          header_website: {
+              color: '#87878b',
+              marginTop: 10,
+              marginLeft: 20,
+              fontSize: 11,
+              fontWeight: 'bold'
           },
           input: {
               color: '#000',
@@ -45,7 +58,7 @@ const appWidth = Dimensions.get('window').width,
 
           },
           loginButton: {
-              marginTop: 50,
+              marginTop: 20,
               marginLeft: 30,
               marginRight: 30,
               borderColor: '#308ffc',
@@ -76,21 +89,36 @@ const appWidth = Dimensions.get('window').width,
           },
           registerDescription: {
               textAlign: 'center',
-              marginTop: 60,
+              marginTop: 50,
               fontSize: 14
           }
       });
 
-class Login extends Component{
+class Settings extends Component {
     constructor(props) {
         super(props);
 
         this.state = {
             registerButtonStyle: styles.buttonText,
             loginButtonStyle: styles.buttonText,
-            login: '',
-            password: ''
+            username: '',
+            usernamePlaceholder: '',
+            password: '',
+            domain: '',
+            domainPlaceholder: ''
         };
+    }
+
+    componentWillMount() {
+        this._loadInitialState().done();
+    }
+
+    async _loadInitialState() {
+        this.setState({
+            usernamePlaceholder: await AsyncStorage.getItem('_username'),
+            domain: await AsyncStorage.getItem('_domain'),
+            domainPlaceholder: await AsyncStorage.getItem('_domain')
+        });
     }
 
     onLoginButtonPressIn() {
@@ -106,27 +134,24 @@ class Login extends Component{
     }
 
     onLoginPress() {
-        let login = this.state.login,
-            password = this.state.password;
+        let username = this.state.username,
+            password = this.state.password,
+            domain = this.state.domain;
 
-        if (login === '' || password === '') {
-            Alert.alert('Valid login and password are required');
+        if (domain === '' || username === '' || password === '') {
+            Alert.alert('Error', 'Please fill out all required fields');
 
             return;
         }
 
         this.props.navigator.push({index: 'preloader'});
-
-        setTimeout(() => {
-            this.props.navigator.pop();
-        }, 2000);
-
         this.props.restClient.destroySession(this._logoutCallback.bind(this));
     }
 
     _logoutCallback(results) {
         this.props.restClient.generateSession(
-            this.state.login,
+            this.state.domain,
+            this.state.username,
             this.state.password,
             this._loginCallback.bind(this)
         );
@@ -134,17 +159,23 @@ class Login extends Component{
         // @todo: we could do something in case of logout issues
     }
 
-    async _loginCallback(results) {
+    async _loginCallback(results, isError) {
         let oldUsername = await AsyncStorage.getItem('_username'),
-            oldPassword = await AsyncStorage.getItem('_password');
+            oldPassword = await AsyncStorage.getItem('_password'),
+            oldDomain = await AsyncStorage.getItem('_domain'),
+            errorMessage = 'Login or password is incorrect';
 
-        if (!results['Session']) {
+        if (isError) {
+            errorMessage = results.message;
+        }
+
+        if (isError || !results['Session']) {
             Alert.alert(
                 'Error',
-                'Login or password is incorrect',
+                errorMessage,
                 [
                     {text: 'Try again', onPress: () => {
-                        this.props.restClient.generateSession(oldUsername, oldPassword, function (results) {
+                        this.props.restClient.generateSession(oldDomain, oldUsername, oldPassword, function (results) {
                             AsyncStorage.multiSet([
                                 ['identifier', results['Session']['identifier']],
                                 ['csrfToken', results['Session']['csrfToken']],
@@ -153,6 +184,9 @@ class Login extends Component{
 
                             this.props.restClient.getUserByHref(results['Session']['User']['_href'], function (results2) {
                                 this.props.restClient.defaultUserTitle = results2['User']['name'];
+
+                                // go back to list
+                                this.props.navigator.pop();
                             }.bind(this));
                         }.bind(this))
                     }}
@@ -176,7 +210,7 @@ class Login extends Component{
 
     _userCallback(results) {
         this.props.restClient.defaultUserTitle = results['User']['name'];
-        this.props.navigator.pop();
+        this.props.navigator.popToTop();
     }
 
     onRegisterButtonPressIn() {
@@ -198,22 +232,36 @@ class Login extends Component{
     render() {
         return (
             <View style={styles.container}>
-                <Text style={styles.header}>To share your pictures with other users, you need to be logged in</Text>
+                <Text style={styles.header_website}>{'Server'.toUpperCase()}</Text>
+                <View style={styles.field_website}>
+                    <TextInput
+                        onChangeText={domain => this.setState({domain})}
+                        value={this.state.domain}
+                        autoCorrect={false}
+                        keyboardType="url"
+                        autoCapitalize="none"
+                        placeholder={this.state.domainPlaceholder}
+                        style={styles.input}
+                    />
+                </View>
+                <Hr lineColor='#87878b'/>
+                <Text style={styles.header}>{'User account'.toUpperCase()}</Text>
                 <View style={styles.field}>
                     <TextInput
-                        onChangeText={login => this.setState({login})}
-                        autofocus={true}
+                        onChangeText={username => this.setState({username})}
+                        autoCorrect={false}
                         autoCapitalize="none"
-                        placeholder="Login"
+                        placeholder={this.state.usernamePlaceholder}
                         style={styles.input}
                     />
                 </View>
                 <View style={styles.field}>
                     <TextInput
                         onChangeText={password => this.setState({password})}
+                        autoCorrect={false}
                         secureTextEntry={true}
                         autoCapitalize="none"
-                        placeholder="Password"
+                        placeholder="(type your password here)"
                         style={styles.input}
                     />
                 </View>
@@ -224,7 +272,7 @@ class Login extends Component{
                     underlayColor={underlayColor}
                     style={styles.loginButton}
                 >
-                    <Text style={this.state.loginButtonStyle}>Login</Text>
+                    <Text style={this.state.loginButtonStyle}>Apply</Text>
                 </TouchableHighlight>
                 <Text style={styles.registerDescription}>Don{"'"}t have an account yet?</Text>
                 <TouchableHighlight
@@ -241,4 +289,4 @@ class Login extends Component{
         );
     }
 }
-export default Login;
+export default Settings;
