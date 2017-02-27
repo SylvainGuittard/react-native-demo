@@ -12,6 +12,7 @@ import Settings from './src/components/Settings';
 import Register from './src/components/Register';
 import Preloader from './src/components/Preloader';
 import SettingsPreview from './src/components/SettingsPreview';
+import Photographer from './src/components/Photographer';
 import RestClient from './src/RestClient';
 import Configuration from './src/Configuration';
 import SettingsSVG from './src/svg/SettingsSVG';
@@ -61,7 +62,8 @@ export default class PlacesAndTastes extends Component {
         {index: 'settings_preview'},
         {index: 'settings'},
         {index: 'register'},
-        {index: 'preloader'}
+        {index: 'preloader'},
+        {index: 'photographer'}
     ];
 
     constructor(props) {
@@ -113,6 +115,10 @@ export default class PlacesAndTastes extends Component {
                 return (<Preloader
                     navigator={navigator}
                 />);
+                break;
+
+            case 'photographer':
+                return (<Photographer/>);
                 break;
 
             default:
